@@ -2,3 +2,6 @@
 	path = vendor/bind
 	url = https://github.com/google/jni-bind
 	branch = main
+[submodule "vendor/jni-bind"]
+	path = vendor/jni-bind
+	url = https://github.com/YiRanMushroom/jni-bind

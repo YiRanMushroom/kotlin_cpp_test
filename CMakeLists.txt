@@ -77,11 +77,11 @@ file(COPY vendor/jdk
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
 
-install(TARGETS ${PROJECT_NAME}
-        EXPORT ${PROJECT_NAME}Targets
-        FILE_SET cxx_modules
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}
-)
+#install(TARGETS ${PROJECT_NAME}
+#        EXPORT ${PROJECT_NAME}Targets
+#        FILE_SET cxx_modules
+#        DESTINATION ${CMAKE_INSTALL_LIBDIR}
+#)
 
 configure_package_config_file(
         ${CMAKE_CURRENT_SOURCE_DIR}/cmake/${PROJECT_NAME}Config.cmake.in
@@ -95,13 +95,30 @@ write_basic_package_version_file(
         COMPATIBILITY SameMajorVersion
 )
 
-install(FILES
-        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
-        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+#install(FILES
+#        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
+#        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+#        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+#)
+#
+#install(EXPORT ${PROJECT_NAME}Targets
+#        FILE ${PROJECT_NAME}Targets.cmake
+#        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+#)
+
+target_include_directories(${PROJECT_NAME}
+        PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/vendor/jni-bind>
 )
 
-install(EXPORT ${PROJECT_NAME}Targets
-        FILE ${PROJECT_NAME}Targets.cmake
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+add_subdirectory(vendor/jni-bind)
+
+target_link_libraries(${PROJECT_NAME}
+        PUBLIC
+        jni_bind
+)
+
+target_link_libraries(kotlin_cpp_test
+        PUBLIC
+        jni_bind
 )
