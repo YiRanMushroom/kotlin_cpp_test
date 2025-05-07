@@ -9,26 +9,94 @@ JNIEXPORT void JNICALL providedNativePrintln
     env->ReleaseStringUTFChars(message, str);
 }
 
+using namespace jni;
+
+JNIEnv *env;
+
 int main() {
-    // 1. 设置JVM启动参数
     JavaVMInitArgs vm_args;
     vm_args.version = JNI_VERSION_1_6;
     JavaVMOption options[1];
-    options[0].optionString = const_cast<char *>("-Djava.class.path=.");
+    options[0].optionString = const_cast<char *>("-Djava.class.path=./easy-core-lib-1.0.jar");
     vm_args.nOptions = 1;
     vm_args.options = options;
     vm_args.ignoreUnrecognized = JNI_FALSE;
 
-    // 2. 创建JVM
     JavaVM *pjvm;
-    JNIEnv *env;
+
     jint rc = JNI_CreateJavaVM(&pjvm, (void **) &env, &vm_args);
     if (rc != JNI_OK) {
         return -1;
     }
-
     auto jvm = std::make_unique<jni::JvmRef<jni::kDefaultJvm>>(pjvm);
 
+    static constexpr Class JTClass{
+        "java/lang/Class"
+    };
+
+    static constexpr Class JTString{
+        "java/lang/String",
+        jni::Constructor{},
+        jni::Constructor{jstring{}},
+    };
+
+    static constexpr Class JTMethod{
+        "java/lang/reflect/Method"
+    };
+
+    static constexpr Class JTObject{
+        "java/lang/Object",
+        jni::Constructor{},
+    };
+
+    static constexpr Class ETLib{
+        "com/easy/Lib",
+        Static{
+            Method{"Init", jni::Return{}, Params{}},
+            Method{"GetClass", jni::Return{JTClass}, Params{jstring{}}},
+            Method{"PrintClassInfo", jni::Return{}, Params{JTClass}},
+            Method{
+                "GetMethodFromClassAndFunctionName",
+                jni::Return{JTMethod}, Params{JTClass, jstring{}, Array{JTClass}}
+            },
+            Method{
+                "CallStaticMethod",
+                jni::Return{JTObject}, Params{JTMethod, Array{JTObject}}
+            },
+        },
+    };
+
+
+    StaticRef<ETLib> libStaticRef;
+    libStaticRef.Call<"Init">();
+
+    LocalObject easyLibClassObj = libStaticRef.Call<"GetClass">("com.easy.Lib");
+    libStaticRef.Call<"PrintClassInfo">(easyLibClassObj);
+    LocalObject jstringClassObj = libStaticRef.Call<"GetClass">("java.lang.String");
+    LocalObject jclassClassObj = libStaticRef.Call<"GetClass">("java.lang.Class");
+
+    LocalArray<jobject, 1, JTClass> paraArray{3};
+    paraArray.Set(0, static_cast<jobject>(easyLibClassObj));
+    paraArray.Set(1, static_cast<jobject>(jstringClassObj));
+    paraArray.Set(2, static_cast<jobject>(jclassClassObj));
+
+    auto targetMethod = libStaticRef.Call<"GetMethodFromClassAndFunctionName">(
+        easyLibClassObj, "GetMethodFromClassAndFunctionName",
+        paraArray);
+
+    LocalString targetMethodName{"GetMethodFromClassAndFunctionName"};
+
+    LocalArray<jobject, 1, JTObject> anotherParaArray{3};
+    anotherParaArray.Set(0, static_cast<jobject>(easyLibClassObj));
+    anotherParaArray.Set(1, static_cast<jobject>(static_cast<jstring>(targetMethodName)));
+    anotherParaArray.Set(2, static_cast<jobject>(paraArray));
+
+    auto targetMethod2 = libStaticRef.Call<"CallStaticMethod">(targetMethod, anotherParaArray);
+
+    assert(targetMethod == targetMethod2);
+}
+
+void app() {
     static constexpr jni::Class StringClass{
         "java/lang/String",
         jni::Constructor{},
@@ -49,8 +117,6 @@ int main() {
 
     jni::LocalObject<URLClass> urlObj{"file:./test-kotlin-cpp-1.0-SNAPSHOT.jar"};
     std::cout << "URL: " << urlObj.Call<"toString">().Pin().ToString() << std::endl;
-
-    using namespace jni;
 
     static constexpr Class _forWard_Class = Class{"java/lang/Class"};
 
@@ -106,23 +172,17 @@ int main() {
             env->ExceptionDescribe();
             env->ExceptionClear();
         }
-        return -1;
+        return;
     }
 
-    // 2. 创建测试字符串
     jstring testString = env->NewStringUTF("Test from native code");
 
-    // 3. 调用静态方法
     env->CallStaticVoidMethod(loadedClass, methodId, testString);
 
-    // 检查是否有异常
     if (env->ExceptionCheck()) {
         env->ExceptionDescribe();
         env->ExceptionClear();
     }
 
-    // 清理本地引用
     env->DeleteLocalRef(testString);
 }
-
-void app() {}
