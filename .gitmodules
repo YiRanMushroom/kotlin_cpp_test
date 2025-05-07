@@ -1,0 +1,4 @@
+[submodule "vendor/bind"]
+	path = vendor/bind
+	url = https://github.com/google/jni-bind
+	branch = main
