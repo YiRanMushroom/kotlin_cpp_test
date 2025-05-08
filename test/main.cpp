@@ -1,8 +1,11 @@
 #include <cassert>
 #include <iostream>
-#include <jni_bind.h>
 
-JNIEXPORT void JNICALL providedNativePrintln
+import jni_bind;
+import jni_basic_types;
+import Easy.Scripting.JniBind;
+
+void providedNativePrintln
 (JNIEnv *env, jclass clazz, jstring message) {
     const char *str = env->GetStringUTFChars(message, nullptr);
     std::cout << "Native print: " << str << std::endl;
@@ -11,63 +14,27 @@ JNIEXPORT void JNICALL providedNativePrintln
 
 using namespace jni;
 
-JNIEnv *env;
-
 int main() {
     JavaVMInitArgs vm_args;
-    vm_args.version = JNI_VERSION_1_6;
+    vm_args.version = Jni_Version_1_6;
     JavaVMOption options[1];
     options[0].optionString = const_cast<char *>("-Djava.class.path=./easy-core-lib-1.0.jar");
     vm_args.nOptions = 1;
     vm_args.options = options;
-    vm_args.ignoreUnrecognized = JNI_FALSE;
+    vm_args.ignoreUnrecognized = Jni_False;
 
-    JavaVM *pjvm;
+    using namespace Easy::Script;
 
     jint rc = JNI_CreateJavaVM(&pjvm, (void **) &env, &vm_args);
-    if (rc != JNI_OK) {
+    if (rc != Jni_Ok) {
         return -1;
     }
     auto jvm = std::make_unique<jni::JvmRef<jni::kDefaultJvm>>(pjvm);
 
-    static constexpr Class JTClass{
-        "java/lang/Class"
-    };
 
-    static constexpr Class JTString{
-        "java/lang/String",
-        jni::Constructor{},
-        jni::Constructor{jstring{}},
-    };
+    constexpr static auto ETLib = ECLib::JniType;
 
-    static constexpr Class JTMethod{
-        "java/lang/reflect/Method"
-    };
-
-    static constexpr Class JTObject{
-        "java/lang/Object",
-        jni::Constructor{},
-    };
-
-    static constexpr Class ETLib{
-        "com/easy/Lib",
-        Static{
-            Method{"Init", jni::Return{}, Params{}},
-            Method{"GetClass", jni::Return{JTClass}, Params{jstring{}}},
-            Method{"PrintClassInfo", jni::Return{}, Params{JTClass}},
-            Method{
-                "GetMethodFromClassAndFunctionName",
-                jni::Return{JTMethod}, Params{JTClass, jstring{}, Array{JTClass}}
-            },
-            Method{
-                "CallStaticMethod",
-                jni::Return{JTObject}, Params{JTMethod, Array{JTObject}}
-            },
-        },
-    };
-
-
-    StaticRef<ETLib> libStaticRef;
+    constexpr StaticRef<ETLib> libStaticRef;
     libStaticRef.Call<"Init">();
 
     LocalObject easyLibClassObj = libStaticRef.Call<"GetClass">("com.easy.Lib");
@@ -93,20 +60,15 @@ int main() {
 
     auto targetMethod2 = libStaticRef.Call<"CallStaticMethod">(targetMethod, anotherParaArray);
 
+    GlobalObject<JTMethod> targetMethodGlobalRef{PromoteToGlobal{}, static_cast<jobject>(targetMethod)};
+
+    auto obj2 = std::move(targetMethodGlobalRef);
+
     assert(targetMethod == targetMethod2);
 }
 
 void app() {
-    static constexpr jni::Class StringClass{
-        "java/lang/String",
-        jni::Constructor{},
-        jni::Constructor{jstring{}},
-        jni::Method{"toString", jni::Return{jstring{}}, jni::Params{}},
-    };
-
-    jni::LocalObject<StringClass> stringObj("Hello");
-    jni::LocalString str{stringObj.Call<"toString">()};
-    std::cout << "String: " << str.Pin().ToString() << std::endl;
+    using namespace Easy::Script;
 
     static constexpr jni::Class URLClass{
         "java/net/URL",
@@ -160,7 +122,7 @@ void app() {
         1
     );
 
-    assert(result == JNI_OK);
+    assert(result == Jni_Ok);
 
     auto loadedClass = static_cast<jclass>(static_cast<jobject>(clazz));
 
